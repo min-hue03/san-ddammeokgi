@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🏔️ 산 따먹기 — 인서울 대학 영토 전쟁</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f5f0; color: #1a1a18; min-height: 100vh; }
+
+    /* 헤더 */
+    .header { background: white; border-bottom: 1px solid #e8e8e0; padding: 14px 20px; display: flex; align-items: center; gap: 10px; position: sticky; top: 0; z-index: 100; }
+    .header h1 { font-size: 18px; font-weight: 600; }
+    .header .sub { font-size: 12px; color: #888; margin-left: auto; }
+
+    /* 탭 */
+    .tabs { display: flex; gap: 0; background: white; border-bottom: 1px solid #e8e8e0; padding: 0 16px; }
+    .tab { padding: 12px 18px; font-size: 14px; cursor: pointer; border-bottom: 2px solid transparent; color: #888; font-weight: 500; background: none; border-top: none; border-left: none; border-right: none; }
+    .tab.active { color: #1a1a18; border-bottom-color: #1a1a18; }
+
+    /* 메인 컨텐츠 */
+    .content { max-width: 680px; margin: 0 auto; padding: 16px; }
+    .section { display: none; }
+    .section.show { display: block; }
+
+    /* 통계 카드 */
+    .stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 16px; }
+    .stat-card { background: white; border-radius: 12px; padding: 14px; text-align: center; border: 1px solid #e8e8e0; }
+    .stat-num { font-size: 22px; font-weight: 700; }
+    .stat-label { font-size: 11px; color: #888; margin-top: 3px; }
+
+    /* GPS 박스 */
+    .gps-box { background: white; border-radius: 12px; padding: 14px 16px; margin-bottom: 16px; border: 1px solid #e8e8e0; }
+    .gps-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+    .gps-status { display: flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 500; }
+    .gps-dot { width: 9px; height: 9px; border-radius: 50%; background: #ccc; flex-shrink: 0; transition: background 0.3s; }
+    .gps-dot.on { background: #22c55e; box-shadow: 0 0 0 3px #22c55e33; }
+    .gps-dot.err { background: #ef4444; }
+    .gps-btn { padding: 7px 14px; border-radius: 20px; border: 1px solid #e8e8e0; font-size: 13px; font-weight: 500; cursor: pointer; background: white; color: #1a1a18; transition: background 0.15s; }
+    .gps-btn:hover { background: #f5f5f0; }
+    .gps-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .gps-info { font-size: 12px; color: #666; line-height: 1.6; }
+    .gps-coords { font-family: monospace; font-size: 11px; color: #aaa; margin-top: 4px; }
+
+    /* 근처 산 배너 */
+    .near-banner { background: #f0fdf4; border: 1.5px solid #22c55e; border-radius: 12px; padding: 12px 16px; margin-bottom: 16px; display: none; }
+    .near-banner.show { display: block; }
+    .near-banner-title { font-size: 14px; font-weight: 600; color: #15803d; margin-bottom: 3px; }
+    .near-banner-sub { font-size: 12px; color: #16a34a; }
+
+    /* 필터 */
+    .filter-row { display: flex; gap: 8px; margin-bottom: 14px; }
+    .filter-row input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid #e8e8e0; font-size: 13px; background: white; outline: none; }
+    .filter-row input:focus { border-color: #aaa; }
+    .filter-row select { padding: 9px 12px; border-radius: 8px; border: 1px solid #e8e8e0; font-size: 13px; background: white; cursor: pointer; }
+
+    /* 산 그리드 */
+    .mountain-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; }
+    @media (max-width: 480px) { .mountain-grid { grid-template-columns: 1fr; } }
+    .mtn-card { background: white; border-radius: 12px; padding: 14px; border: 1px solid #e8e8e0; transition: border-color 0.2s; cursor: pointer; }
+    .mtn-card:hover { border-color: #aaa; }
+    .mtn-card.nearby { border-color: #22c55e; border-width: 2px; }
+    .mtn-top { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 6px; }
+    .mtn-emoji { font-size: 22px; }
+    .mtn-alt { font-size: 11px; color: #aaa; background: #f5f5f0; padding: 2px 7px; border-radius: 10px; }
+    .mtn-name { font-size: 15px; font-weight: 600; margin-bottom: 2px; }
+    .mtn-loc { font-size: 11px; color: #aaa; margin-bottom: 6px; }
+    .mtn-dist { font-size: 12px; color: #aaa; margin-bottom: 6px; }
+    .mtn-dist.close { color: #16a34a; font-weight: 600; }
+    .mtn-owner-pill { display: inline-block; font-size: 11px; padding: 3px 10px; border-radius: 20px; margin-bottom: 4px; }
+    .mtn-times { font-size: 11px; color: #aaa; }
+    .conquer-btn { width: 100%; margin-top: 10px; padding: 8px; border-radius: 8px; border: 1px solid #e8e8e0; font-size: 13px; font-weight: 500; cursor: pointer; background: white; color: #1a1a18; transition: all 0.15s; }
+    .conquer-btn:hover { background: #f5f5f0; }
+    .conquer-btn.gps-ready { background: #16a34a; color: white; border-color: #16a34a; }
+    .conquer-btn.locked { opacity: 0.4; cursor: not-allowed; }
+
+    /* 대학 랭킹 */
+    .uni-list { display: flex; flex-direction: column; gap: 8px; }
+    .uni-row { display: flex; align-items: center; gap: 12px; padding: 13px 14px; background: white; border-radius: 12px; border: 1px solid #e8e8e0; }
+    .rank-num { font-size: 13px; color: #aaa; min-width: 22px; font-weight: 600; }
+    .uni-circle { width: 36px; height: 36px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; color: white; flex-shrink: 0; }
+    .uni-info { flex: 1; min-width: 0; }
+    .uni-name { font-size: 14px; font-weight: 600; }
+    .uni-title { font-size: 12px; margin-top: 1px; }
+    .uni-mtns { font-size: 11px; color: #aaa; margin-top: 2px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .uni-score { font-size: 16px; font-weight: 700; color: #666; }
+
+    /* 피드 */
+    .feed-list { display: flex; flex-direction: column; gap: 8px; }
+    .feed-item { background: white; border-radius: 12px; padding: 13px 15px; border: 1px solid #e8e8e0; }
+    .feed-date { font-size: 11px; color: #aaa; margin-bottom: 4px; }
+    .feed-text { font-size: 14px; line-height: 1.6; }
+    .feed-tags { display: flex; gap: 6px; margin-top: 7px; flex-wrap: wrap; }
+    .feed-tag { font-size: 11px; padding: 2px 9px; border-radius: 10px; }
+    .feed-gps { font-size: 11px; color: #16a34a; }
+
+    /* 모달 오버레이 */
+    .modal-overlay { display: none; position: fixed; inset: 0; background: rgba(0,0,0,0.5); z-index: 200; align-items: center; justify-content: center; padding: 20px; }
+    .modal-overlay.show { display: flex; }
+    .modal { background: white; border-radius: 16px; padding: 22px; width: 100%; max-width: 320px; }
+    .modal h3 { font-size: 17px; font-weight: 700; margin-bottom: 6px; }
+    .modal-desc { font-size: 13px; color: #666; margin-bottom: 12px; line-height: 1.6; }
+    .modal-gps { font-size: 13px; padding: 10px 13px; border-radius: 9px; margin-bottom: 12px; line-height: 1.5; }
+    .modal-gps.ok { background: #f0fdf4; color: #15803d; }
+    .modal-gps.fail { background: #fef2f2; color: #991b1b; }
+    .modal-gps.loading { background: #f5f5f0; color: #666; }
+    .modal select { width: 100%; padding: 10px 12px; border-radius: 9px; border: 1px solid #e8e8e0; font-size: 14px; margin-bottom: 12px; background: white; cursor: pointer; outline: none; }
+    .modal-btns { display: flex; gap: 8px; }
+    .modal-btn { flex: 1; padding: 10px; border-radius: 9px; border: 1px solid #e8e8e0; font-size: 14px; font-weight: 600; cursor: pointer; background: white; }
+    .modal-btn.confirm { background: #1a1a18; color: white; border-color: #1a1a18; }
+    .modal-btn.confirm:disabled { opacity: 0.4; cursor: not-allowed; }
+
+    /* 토스트 */
+    .toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%); background: #1a1a18; color: white; padding: 11px 22px; border-radius: 24px; font-size: 13px; font-weight: 500; z-index: 999; opacity: 0; transition: opacity 0.3s; pointer-events: none; white-space: nowrap; max-width: 90vw; text-align: center; }
+    .toast.show { opacity: 1; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <span style="font-size:22px">🏔️</span>
+    <h1>산 따먹기</h1>
+    <span class="sub">인서울 대학 영토 전쟁</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" onclick="showTab('mountains')">산 목록</button>
+    <button class="tab" onclick="showTab('ranking')">대학 랭킹</button>
+    <button class="tab" onclick="showTab('feed')">전적 피드</button>
+  </div>
+
+  <div class="content">
+
+    <!-- 산 목록 탭 -->
+    <div class="section show" id="tab-mountains">
+      <div class="stats-row">
+        <div class="stat-card">
+          <div class="stat-num">14</div>
+          <div class="stat-label">서울 산</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-conquered" style="color:#16a34a">4</div>
+          <div class="stat-label">점령됨</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-num" id="stat-virgin">10</div>
+          <div class="stat-label">순결한 산 🌿</div>
+        </div>
+      </div>
+
+      <div class="gps-box">
+        <div class="gps-top">
+          <div class="gps-status">
+            <div class="gps-dot" id="gps-dot"></div>
+            <span id="gps-label">GPS 미연결</span>
+          </div>
+          <button class="gps-btn" id="gps-btn" onclick="startGPS()">📍 내 위치 확인</button>
+        </div>
+        <div class="gps-info" id="gps-info">위치 허용 버튼을 누르면 주변 산까지 거리를 실시간으로 알려드려요. 정상 500m 이내에서만 점령 가능!</div>
+        <div class="gps-coords" id="gps-coords"></div>
+      </div>
+
+      <div class="near-banner" id="near-banner">
+        <div class="near-banner-title" id="near-title">📍 근처 산 발견!</div>
+        <div class="near-banner-sub" id="near-sub">지금 점령할 수 있어요!</div>
+      </div>
+
+      <div class="filter-row">
+        <input type="text" id="search-input" placeholder="🔍  산 이름 검색..." oninput="renderMountains()">
+        <select id="filter-status" onchange="renderMountains()">
+          <option value="all">전체</option>
+          <option value="owned">점령됨</option>
+          <option value="virgin">순결한 산</option>
+        </select>
+      </div>
+
+      <div class="mountain-grid" id="mountain-grid"></div>
+    </div>
+
+    <!-- 랭킹 탭 -->
+    <div class="section" id="tab-ranking">
+      <div class="uni-list" id="uni-list"></div>
+    </div>
+
+    <!-- 피드 탭 -->
+    <div class="section" id="tab-feed">
+      <div class="feed-list" id="feed-list"></div>
+    </div>
+
+  </div><!-- /content -->
+
+  <!-- 점령 모달 -->
+  <div class="modal-overlay" id="modal-overlay" onclick="closeModalOutside(event)">
+    <div class="modal">
+      <h3 id="modal-title">북한산을 노린다</h3>
+      <p class="modal-desc" id="modal-desc"></p>
+      <div class="modal-gps loading" id="modal-gps">📡 GPS 위치 확인 중...</div>
+      <select id="modal-uni">
+        <option value="">학교 선택...</option>
+      </select>
+      <div class="modal-btns">
+        <button class="modal-btn" onclick="closeModal()">취소</button>
+        <button class="modal-btn confirm" id="confirm-btn" onclick="doConquer()" disabled>🔥 점령 선언</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="toast" id="toast"></div>
+
+  <script>
+    // =====================
+    // 데이터
+    // =====================
+    const MOUNTAINS = [
+      { id:1,  name:"북한산",   alt:837,  emoji:"🏔️", loc:"은평/종로/성북구",  lat:37.6597, lng:126.9771 },
+      { id:2,  name:"도봉산",   alt:740,  emoji:"⛰️",  loc:"도봉구",           lat:37.6898, lng:127.0136 },
+      { id:3,  name:"수락산",   alt:638,  emoji:"⛰️",  loc:"노원구",           lat:37.6801, lng:127.0637 },
+      { id:4,  name:"관악산",   alt:629,  emoji:"⛰️",  loc:"관악/금천구",      lat:37.4427, lng:126.9646 },
+      { id:5,  name:"청계산",   alt:618,  emoji:"⛰️",  loc:"서초구",           lat:37.4271, lng:127.0614 },
+      { id:6,  name:"불암산",   alt:510,  emoji:"🪨",   loc:"노원구",           lat:37.6458, lng:127.1004 },
+      { id:7,  name:"삼성산",   alt:481,  emoji:"⛰️",  loc:"관악/금천구",      lat:37.4300, lng:126.9400 },
+      { id:8,  name:"용마산",   alt:348,  emoji:"⛰️",  loc:"중랑구",           lat:37.5648, lng:127.1046 },
+      { id:9,  name:"백악산",   alt:342,  emoji:"🏛️",  loc:"종로구",           lat:37.5963, lng:126.9780 },
+      { id:10, name:"인왕산",   alt:338,  emoji:"🪨",   loc:"종로/서대문구",    lat:37.5817, lng:126.9601 },
+      { id:11, name:"구룡산",   alt:306,  emoji:"⛰️",  loc:"강남구",           lat:37.4700, lng:127.0480 },
+      { id:12, name:"남산",     alt:270,  emoji:"🗼",   loc:"중구/용산구",      lat:37.5512, lng:126.9882 },
+      { id:13, name:"아차산",   alt:295,  emoji:"⛰️",  loc:"광진구",           lat:37.5516, lng:127.1030 },
+      { id:14, name:"안산",     alt:296,  emoji:"⛰️",  loc:"서대문구",         lat:37.5760, lng:126.9367 },
+    ];
+
+    const UNIS = [
+      { name:"서울대",    short:"서울", color:"#003B7A" },
+      { name:"고려대",    short:"고려", color:"#8B0000" },
+      { name:"연세대",    short:"연세", color:"#003087" },
+      { name:"성균관대",  short:"성균", color:"#005BAC" },
+      { name:"한양대",    short:"한양", color:"#E31837" },
+      { name:"중앙대",    short:"중앙", color:"#C8102E" },
+      { name:"경희대",    short:"경희", color:"#006400" },
+      { name:"이화여대",  short:"이화", color:"#7B2D8B" },
+      { name:"동국대",    short:"동국", color:"#FF6B00" },
+      { name:"홍익대",    short:"홍익", color:"#1A237E" },
+      { name:"숙명여대",  short:"숙명", color:"#880E4F" },
+      { name:"숭실대",    short:"숭실", color:"#1565C0" },
+      { name:"국민대",    short:"국민", color:"#2E7D32" },
+      { name:"세종대",    short:"세종", color:"#4A148C" },
+      { name:"건국대",    short:"건국", color:"#BF360C" },
+      { name:"광운대",    short:"광운", color:"#006064" },
+      { name:"덕성여대",  short:"덕성", color:"#AD1457" },
+      { name:"서울시립대",short:"시립", color:"#37474F" },
+      { name:"명지대",    short:"명지", color:"#1B5E20" },
+      { name:"상명대",    short:"상명", color:"#6A1B9A" },
+    ];
+
+    const TITLES = [
+      [0,  "아직 무명"],
+      [1,  "등산 입문자 🥾"],
+      [2,  "산 맛 좀 봤다 😏"],
+      [3,  "산에 미쳐가는 중 🔥"],
+      [4,  "산을 범하는 자 😈"],
+      [6,  "서울 산신(山神) 👹"],
+      [10, "서울 산 전체 지배자 👑"],
+    ];
+
+    const VERBS_FIRST  = ["따먹었습니다 🔥", "범했습니다 😈", "손에 넣었습니다 ⚔️", "정복했습니다"];
+    const VERBS_RETAKE = ["빼앗았습니다 😤", "다시 범했습니다 🔥", "탈환했습니다 ⚔️", "유린했습니다 😈"];
+    const pick = arr => arr[Math.floor(Math.random() * arr.length)];
+
+    // 상태
+    let mountains = MOUNTAINS.map(m => ({ ...m, owner: null, conquerCount: 0 }));
+    // 초기 점령
+    [["서울대", 4], ["고려대", 1], ["연세대", 9], ["동국대", 12]].forEach(([uni, id]) => {
+      const m = mountains.find(x => x.id === id);
+      m.owner = uni; m.conquerCount = 1;
+    });
+
+    let feed = [
+      { date:"5.01", uni:"연세대", mountain:"백악산", prev:null,    gps:true },
+      { date:"4.28", uni:"동국대", mountain:"남산",   prev:null,    gps:true },
+      { date:"4.25", uni:"고려대", mountain:"북한산", prev:null,    gps:true },
+      { date:"4.22", uni:"서울대", mountain:"관악산", prev:null,    gps:true },
+    ];
+
+    let currentLat = null, currentLng = null, gpsActive = false;
+    let targetId = null, modalGpsOk = false;
+    const RADIUS = 500; // 500m
+
+    // =====================
+    // GPS
+    // =====================
+    function haversine(lat1, lng1, lat2, lng2) {
+      const R = 6371000;
+      const toRad = x => x * Math.PI / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLng = toRad(lng2 - lng1);
+      const a = Math.sin(dLat/2)**2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng/2)**2;
+      return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+    }
+
+    function fmtDist(m) {
+      return m < 1000 ? Math.round(m) + "m" : (m/1000).toFixed(1) + "km";
+    }
+
+    function startGPS() {
+      if (!navigator.geolocation) {
+        document.getElementById("gps-info").textContent = "이 브라우저는 GPS를 지원하지 않아요.";
+        return;
+      }
+      const btn = document.getElementById("gps-btn");
+      btn.textContent = "위치 확인 중...";
+      btn.disabled = true;
+      document.getElementById("gps-info").textContent = "브라우저 상단 팝업에서 위치 허용을 눌러주세요!";
+
+      navigator.geolocation.watchPosition(onGpsOk, onGpsErr, {
+        enableHighAccuracy: true, timeout: 15000, maximumAge: 10000
+      });
+    }
+
+    function onGpsOk(pos) {
+      currentLat = pos.coords.latitude;
+      currentLng = pos.coords.longitude;
+      const acc = Math.round(pos.coords.accuracy);
+      gpsActive = true;
+
+      document.getElementById("gps-dot").className   = "gps-dot on";
+      document.getElementById("gps-label").textContent = "GPS 연결됨 (±" + acc + "m)";
+      document.getElementById("gps-btn").textContent  = "위치 갱신 중";
+      document.getElementById("gps-coords").textContent = "위도 " + currentLat.toFixed(5) + "  경도 " + currentLng.toFixed(5);
+
+      // 주변 산 체크
+      const nearby = mountains
+        .map(m => ({ ...m, dist: haversine(currentLat, currentLng, m.lat, m.lng) }))
+        .sort((a, b) => a.dist - b.dist);
+
+      const inRange = nearby.filter(m => m.dist <= RADIUS);
+      const closest = nearby[0];
+
+      if (inRange.length > 0) {
+        document.getElementById("near-banner").classList.add("show");
+        document.getElementById("near-title").textContent = inRange[0].emoji + " " + inRange[0].name + " 근처! (" + fmtDist(inRange[0].dist) + ")";
+        document.getElementById("near-sub").textContent   = "지금 점령 가능! 아래 카드를 클릭하세요.";
+        document.getElementById("gps-info").textContent   = "근처 산 발견! 초록 버튼이 활성화됩니다.";
+      } else {
+        document.getElementById("near-banner").classList.remove("show");
+        document.getElementById("gps-info").textContent =
+          "가장 가까운 산: " + closest.name + " (" + fmtDist(closest.dist) + ") — 500m 이내로 이동하면 점령 가능!";
+      }
+      renderMountains();
+    }
+
+    function onGpsErr(err) {
+      const msgs = { 1:"위치 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.", 2:"위치 신호를 찾을 수 없어요.", 3:"요청 시간이 초과됐어요." };
+      document.getElementById("gps-dot").className   = "gps-dot err";
+      document.getElementById("gps-label").textContent = "GPS 오류";
+      document.getElementById("gps-info").textContent  = msgs[err.code] || "GPS 오류가 발생했어요.";
+      document.getElementById("gps-btn").disabled = false;
+      document.getElementById("gps-btn").textContent = "다시 시도";
+    }
+
+    // =====================
+    // 모달
+    // =====================
+    function openModal(id) {
+      targetId = id;
+      const m = mountains.find(x => x.id === id);
+      document.getElementById("modal-title").textContent = m.emoji + " " + m.name + "을(를) 노린다";
+      document.getElementById("modal-desc").textContent  = m.owner
+        ? "현재 " + m.owner + "의 산 (" + m.conquerCount + "번 주인 바뀜). 빼앗으면 상대 점수 감소!"
+        : "아직 아무도 손대지 않은 순결한 산. 최초 점령의 영광을 가져가세요!";
+
+      const sel = document.getElementById("modal-uni");
+      sel.innerHTML = '<option value="">학교 선택...</option>' +
+        UNIS.map(u => '<option value="' + u.name + '">' + u.name + '</option>').join("");
+
+      checkModalGps(m);
+      document.getElementById("modal-overlay").classList.add("show");
+    }
+
+    function checkModalGps(m) {
+      const el  = document.getElementById("modal-gps");
+      const btn = document.getElementById("confirm-btn");
+      if (!gpsActive) {
+        el.className = "modal-gps fail";
+        el.textContent = "❌ GPS 미연결 — 위의 GPS 버튼을 먼저 켜주세요.";
+        btn.disabled = true; modalGpsOk = false;
+        return;
+      }
+      const dist = haversine(currentLat, currentLng, m.lat, m.lng);
+      if (dist <= RADIUS) {
+        el.className = "modal-gps ok";
+        el.textContent = "✅ GPS 인증 완료! " + m.name + " 에서 " + fmtDist(dist) + " — 점령 가능!";
+        btn.disabled = false; modalGpsOk = true;
+      } else {
+        el.className = "modal-gps fail";
+        el.textContent = "❌ 너무 멀어요! " + fmtDist(dist) + " 거리 — 정상 500m 이내에서만 가능";
+        btn.disabled = true; modalGpsOk = false;
+      }
+    }
+
+    function closeModal() {
+      document.getElementById("modal-overlay").classList.remove("show");
+      targetId = null;
+    }
+
+    function closeModalOutside(e) {
+      if (e.target === document.getElementById("modal-overlay")) closeModal();
+    }
+
+    function doConquer() {
+      if (!modalGpsOk) return;
+      const sel = document.getElementById("modal-uni").value;
+      if (!sel) { showToast("학교를 선택해주세요!"); return; }
+      const m = mountains.find(x => x.id === targetId);
+      const prev = m.owner;
+      if (prev === sel) { showToast("이미 우리 학교 산이에요!"); return; }
+      m.owner = sel; m.conquerCount++;
+
+      const now   = new Date();
+      const dateStr = (now.getMonth()+1) + "." + String(now.getDate()).padStart(2,"0");
+      feed.unshift({ date: dateStr, uni: sel, mountain: m.name, prev: prev || null, gps: true });
+
+      closeModal();
+      renderMountains(); renderRanking(); renderFeed();
+      showTab("feed");
+
+      const cnt   = mountains.filter(x => x.owner === sel).length;
+      const title = getTitle(cnt);
+      const msg   = prev
+        ? "🔥 " + sel + "이(가) " + prev + "에서 " + m.name + "을(를) 빼앗았다!\n칭호: \"" + title + "\""
+        : "⚔️ " + sel + "이(가) " + m.name + "을(를) 따먹었다!\n칭호: \"" + title + "\"";
+      showToast(msg);
+    }
+
+    // =====================
+    // 렌더링
+    // =====================
+    function getUniColor(name) { return (UNIS.find(u => u.name === name) || {}).color || "#888"; }
+    function getUniShort(name) { return (UNIS.find(u => u.name === name) || {}).short || name.slice(0,2); }
+    function getTitle(n) {
+      let t = TITLES[0][1];
+      for (const [min, label] of TITLES) { if (n >= min) t = label; }
+      return t;
+    }
+
+    function renderMountains() {
+      const q = document.getElementById("search-input").value;
+      const f = document.getElementById("filter-status").value;
+      let list = [...mountains].sort((a, b) => b.alt - a.alt);
+      if (q) list = list.filter(m => m.name.includes(q));
+      if (f === "owned")  list = list.filter(m => m.owner);
+      if (f === "virgin") list = list.filter(m => !m.owner);
+
+      document.getElementById("stat-conquered").textContent = mountains.filter(m => m.owner).length;
+      document.getElementById("stat-virgin").textContent    = mountains.filter(m => !m.owner).length;
+
+      const nearby = gpsActive
+        ? mountains.filter(m => haversine(currentLat, currentLng, m.lat, m.lng) <= RADIUS).map(m => m.id)
+        : [];
+
+      document.getElementById("mountain-grid").innerHTML = list.map(m => {
+        const isNearby = nearby.includes(m.id);
+        const dist     = (gpsActive && currentLat !== null)
+          ? haversine(currentLat, currentLng, m.lat, m.lng) : null;
+        const distHtml = dist !== null
+          ? '<div class="mtn-dist ' + (isNearby ? "close" : "") + '">' +
+            (isNearby ? "📍 " : "🔭 ") + fmtDist(dist) + (isNearby ? " — 점령 가능!" : " 거리") + "</div>"
+          : "";
+        const oc    = m.owner ? getUniColor(m.owner) : "#aaa";
+        const ownerLabel = m.owner ? m.owner + "의 산" : "순결한 산 🌿";
+        const ownerBg    = m.owner ? oc + "22" : "#f5f5f0";
+        const ownerText  = m.owner ? oc : "#888";
+        const btnCls  = isNearby ? "conquer-btn gps-ready" : (gpsActive ? "conquer-btn locked" : "conquer-btn");
+        const btnText = isNearby ? "⚡ GPS 인증 — 지금 점령!" : (gpsActive ? "🔒 너무 멀어요" : (m.owner ? "🔥 빼앗기" : "⚔️ 점령하기"));
+        const clickable = isNearby || !gpsActive;
+        return '<div class="mtn-card ' + (isNearby ? "nearby" : "") + '" ' + (clickable ? 'onclick="openModal(' + m.id + ')"' : '') + '>' +
+          '<div class="mtn-top"><span class="mtn-emoji">' + m.emoji + '</span><span class="mtn-alt">' + m.alt + 'm</span></div>' +
+          '<div class="mtn-name">' + m.name + '</div>' +
+          '<div class="mtn-loc">' + m.loc + '</div>' +
+          distHtml +
+          '<span class="mtn-owner-pill" style="background:' + ownerBg + ';color:' + ownerText + '">' + ownerLabel + '</span>' +
+          '<div class="mtn-times">' + (m.conquerCount > 0 ? m.conquerCount + "번 유린당함" : "아직 순결") + '</div>' +
+          '<button class="' + btnCls + '" ' + (clickable ? 'onclick="openModal(' + m.id + '); event.stopPropagation()"' : '') + '>' + btnText + '</button>' +
+          '</div>';
+      }).join("");
+    }
+
+    function renderRanking() {
+      const stats = {};
+      UNIS.forEach(u => stats[u.name] = { count: 0, mtns: [] });
+      mountains.forEach(m => {
+        if (m.owner && stats[m.owner]) { stats[m.owner].count++; stats[m.owner].mtns.push(m.name); }
+      });
+      const sorted = Object.entries(stats).sort((a, b) => b[1].count - a[1].count);
+      document.getElementById("uni-list").innerHTML = sorted.map(([uni, s], i) => {
+        const color = getUniColor(uni);
+        const short = getUniShort(uni);
+        const title = getTitle(s.count);
+        const crown = (i === 0 && s.count > 0) ? " 👑" : "";
+        return '<div class="uni-row">' +
+          '<span class="rank-num">' + (i+1) + '</span>' +
+          '<div class="uni-circle" style="background:' + color + '">' + short + '</div>' +
+          '<div class="uni-info">' +
+            '<div class="uni-name">' + uni + crown + '</div>' +
+            '<div class="uni-title" style="color:' + color + '">' + title + '</div>' +
+            '<div class="uni-mtns">' + (s.mtns.length ? s.mtns.join(", ") : "아직 없음") + '</div>' +
+          '</div>' +
+          '<div class="uni-score">' + s.count + '개</div></div>';
+      }).join("");
+    }
+
+    function renderFeed() {
+      document.getElementById("feed-list").innerHTML = feed.map(f => {
+        const color   = getUniColor(f.uni);
+        const verb    = f.prev ? pick(VERBS_RETAKE) : pick(VERBS_FIRST);
+        const tagTxt  = f.prev ? f.prev + "에게서 탈환" : "최초 점령";
+        const tagColor = f.prev ? "#ef4444" : "#16a34a";
+        const gpsLine = f.gps ? '<span class="feed-gps">GPS 인증 ✅</span>' : '';
+        return '<div class="feed-item">' +
+          '<div class="feed-date">📅 ' + f.date + '</div>' +
+          '<div class="feed-text"><strong style="color:' + color + '">' + f.uni + '</strong>이(가) <strong>' + f.mountain + '</strong>을(를) ' + verb + '</div>' +
+          '<div class="feed-tags">' +
+            '<span class="feed-tag" style="background:' + tagColor + '22;color:' + tagColor + '">' + tagTxt + '</span>' +
+            gpsLine +
+          '</div></div>';
+      }).join("");
+    }
+
+    function showTab(name) {
+      document.querySelectorAll(".section").forEach(s => s.classList.remove("show"));
+      document.querySelectorAll(".tab").forEach(t => t.classList.remove("active"));
+      document.getElementById("tab-" + name).classList.add("show");
+      const idx = ["mountains", "ranking", "feed"].indexOf(name);
+      if (idx >= 0) document.querySelectorAll(".tab")[idx].classList.add("active");
+    }
+
+    function showToast(msg) {
+      const t = document.getElementById("toast");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 3500);
+    }
+
+    // 초기 렌더링
+    renderMountains();
+    renderRanking();
+    renderFeed();
+  </script>
+</body>
+</html>
